@@ -1,0 +1,1 @@
+# goLang-chess-informant
