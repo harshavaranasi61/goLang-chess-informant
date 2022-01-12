@@ -8,10 +8,14 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/ReneKroon/ttlcache/v2"
 	"github.com/gorilla/mux"
 )
+
+var cache ttlcache.SimpleCache = ttlcache.NewCache()
 
 type Move struct {
 	Code  string `json:"code"`
@@ -35,24 +39,32 @@ func returnAllMoves(w http.ResponseWriter, r *http.Request) {
 }
 
 func returnSingleMove(w http.ResponseWriter, r *http.Request) {
-	allMoves := getData()
 	fmt.Println("Endpoint Hit: returnSingleMoves")
 	vars := mux.Vars(r)
 	key := vars["code"]
 
-	requiredMove, err := getMoveForKey(allMoves, key)
-	if err != nil {
-		fmt.Fprintf(w, "No move found for the given ID")
+	value, err := cache.Get(key)
+	if err != nil && value == nil {
+		requiredMove, err := getMoveForKey(key)
+		if err != nil {
+			fmt.Fprintf(w, "No move found for the given ID")
+		} else {
+			fmt.Fprintf(w, "From api call: Moves for following code: %s\n", key)
+			fmt.Fprintf(w, "Title : %s\n", requiredMove.Title)
+			fmt.Fprintf(w, "Moves : %s\n", requiredMove.Moves)
+		}
 	} else {
-		fmt.Fprintf(w, "Moves for following code: %s\n", key)
-		fmt.Fprintf(w, "Title : %s\n", requiredMove.Title)
-		fmt.Fprintf(w, "Moves : %s\n", requiredMove.Moves)
+		fmt.Fprintf(w, "From cache: Moves for following code: %s\n", key)
+		fmt.Fprintf(w, "Title : %s\n", value.(Move).Title)
+		fmt.Fprintf(w, "Moves : %s\n", value.(Move).Moves)
 	}
 }
 
-func getMoveForKey(moves []Move, key string) (Move, error) {
-	for _, move := range moves {
+func getMoveForKey(key string) (Move, error) {
+	allMoves := getData()
+	for _, move := range allMoves {
 		if move.Code == key {
+			cache.SetWithTTL(key, move, time.Duration(3*time.Second))
 			return move, nil
 		}
 	}

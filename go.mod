@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/PuerkitoBio/goquery v1.5.1
+	github.com/ReneKroon/ttlcache/v2 v2.11.0
 	github.com/gorilla/mux v1.8.0
 )
 
@@ -15,6 +16,7 @@ require (
 	github.com/kardianos/govendor v1.0.9 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f // indirect
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20220111092808-5a964db01320 // indirect
 	golang.org/x/tools v0.1.8 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
