@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -29,13 +28,16 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func returnAllMoves(w http.ResponseWriter, r *http.Request) {
-	allMoves := getData()
+	allMoves, err := cache.Get("All moves")
+	if err != nil {
+		allMoves = getData()
+	}
 	fmt.Println("Endpoint Hit: returnAllMoves")
 
 	fmt.Fprintf(w, "All moves :-\n")
 	enc := json.NewEncoder(w)
 	enc.SetIndent("", " ")
-	enc.Encode(allMoves)
+	enc.Encode(allMoves.([]Move))
 }
 
 func returnSingleMove(w http.ResponseWriter, r *http.Request) {
@@ -61,8 +63,13 @@ func returnSingleMove(w http.ResponseWriter, r *http.Request) {
 }
 
 func getMoveForKey(key string) (Move, error) {
-	allMoves := getData()
-	for _, move := range allMoves {
+
+	allMoves, err := cache.Get("All moves")
+	if err != nil {
+		allMoves = getData()
+	}
+
+	for _, move := range allMoves.([]Move) {
 		if move.Code == key {
 			cache.SetWithTTL(key, move, time.Duration(3*time.Second))
 			return move, nil
@@ -73,25 +80,41 @@ func getMoveForKey(key string) (Move, error) {
 
 func handleRequests() {
 
-	port := os.Getenv("PORT")
-
 	myRouter := mux.NewRouter().StrictSlash(true)
 
 	myRouter.HandleFunc("/home", homePage)
 	myRouter.HandleFunc("/", returnAllMoves)
 	myRouter.HandleFunc("/{code}", returnSingleMove)
 
-	log.Fatal(http.ListenAndServe(":"+port, myRouter))
+	log.Fatal(http.ListenAndServe(":8080", myRouter))
 }
 
 func main() {
 	handleRequests()
 }
 
+type Coordinate struct {
+	yCoordinate int
+	zCoordinate int
+}
+
+type Config struct {
+	url            string
+	locationConfig map[string]Coordinate
+}
+
 func getData() []Move {
 	allMoves := make([]Move, 0)
 
-	doc, err := goquery.NewDocument("https://www.chessgames.com/chessecohelp.html")
+	config := Config{
+		"https://www.chessgames.com/chessecohelp.html",
+		map[string]Coordinate{
+			"codeConfig":  {0, 0},
+			"nameConfig":  {1, 0},
+			"movesConfig": {1, 1},
+		},
+	}
+	doc, err := goquery.NewDocument(config.url)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -99,18 +122,16 @@ func getData() []Move {
 	doc.Find("table tr").Each(func(_ int, tr *goquery.Selection) {
 
 		move := Move{}
+		var data [][]string
 		tr.Find("td").Each(func(ix int, td *goquery.Selection) {
-			if ix == 0 {
-				move.Code = td.Text()
-			}
-			if ix == 1 {
-				body := td.Text()
-				splitBody := strings.SplitN(body, "\n", 2)
-				move.Title = splitBody[0]
-				move.Moves = splitBody[1]
-			}
+			data = append(data, strings.Split(td.Text(), "\n"))
 		})
+
+		move.Code = data[config.locationConfig["codeConfig"].yCoordinate][config.locationConfig["codeConfig"].zCoordinate]
+		move.Title = data[config.locationConfig["nameConfig"].yCoordinate][config.locationConfig["nameConfig"].zCoordinate]
+		move.Moves = data[config.locationConfig["movesConfig"].yCoordinate][config.locationConfig["movesConfig"].zCoordinate]
 		allMoves = append(allMoves, move)
 	})
+	cache.SetWithTTL("All Moves", allMoves, time.Minute*30)
 	return allMoves
 }
