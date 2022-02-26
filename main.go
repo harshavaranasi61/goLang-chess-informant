@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -80,13 +81,15 @@ func getMoveForKey(key string) (Move, error) {
 
 func handleRequests() {
 
+	port := os.Getenv("PORT")
+
 	myRouter := mux.NewRouter().StrictSlash(true)
 
 	myRouter.HandleFunc("/home", homePage)
 	myRouter.HandleFunc("/", returnAllMoves)
 	myRouter.HandleFunc("/{code}", returnSingleMove)
 
-	log.Fatal(http.ListenAndServe(":8080", myRouter))
+	log.Fatal(http.ListenAndServe(":"+port, myRouter))
 }
 
 func main() {
